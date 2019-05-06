@@ -2,6 +2,7 @@
 
 
 #include "TankPlayerController.h"
+#include "Engine/World.h"
 #include "BattleTank.h"
 
 
@@ -40,8 +41,7 @@ void ATankPlayerController::AimTowardsCrosshair()
 	FVector HitLocation; //OUT paramater
 	if(GetSightRayHitLocation(HitLocation)) // Has "side=effect", is going to line trace
 	{ 
-		//UE_LOG(LogTemp, Warning, TEXT("Look direction: %s"),*HitLocation.ToString())
-		// ToDo Tell controlled tank to atim at this point
+		GetControlledTank()->AimAt(HitLocation);
 	}
 }
 
@@ -53,16 +53,33 @@ bool ATankPlayerController::GetSightRayHitLocation(FVector& OutHitLocation) cons
 	GetViewportSize(ViewportSizeX, ViewportSizeY);
 	auto ScreenLocation = FVector2D(ViewportSizeX * CrossHairXLocation, ViewportSizeY * CrossHairYLocation);
 
-	UE_LOG(LogTemp, Warning, TEXT("ScreenLocation: %s"), *ScreenLocation.ToString())
-
 	// "De-project" the screen position of the crosshair to a world direction
 	FVector LookDirection;
 	if (GetLookDirection(ScreenLocation, LookDirection))
 	{
-		UE_LOG(LogTemp, Warning, TEXT("Look direction: %s"), *LookDirection.ToString())
+		GetLookVectorHitLocation(LookDirection, OutHitLocation);
 	}
 	//return &OutHitLocation;
 	return true;
+}
+
+bool ATankPlayerController::GetLookVectorHitLocation(FVector LookDirection, FVector& HitLocation) const
+{
+	FHitResult HitResult;
+	auto StartLocation = PlayerCameraManager->GetCameraLocation();
+	auto EndLocation = StartLocation + (LookDirection * LineTraceRange);
+	if(GetWorld()->LineTraceSingleByChannel(
+		HitResult,
+		StartLocation,
+		EndLocation,
+		ECollisionChannel::ECC_Visibility)
+		)
+	{
+		HitLocation = HitResult.Location;
+		return true;
+	}
+	HitLocation = FVector(0);
+	return false;
 }
 
 bool ATankPlayerController::GetLookDirection(FVector2D ScreenLocation, FVector& LookDirection) const
